@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken'
 import { pool } from './db.js'
 import type { Context, Next } from 'hono'
+import type { AppVariables } from './types.js'
+import { createHash } from 'crypto'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'arcana-secret-change-me'
 const JWT_EXPIRES = '30d'
@@ -15,15 +17,12 @@ export function verifyToken(token: string): string {
 }
 
 // Hono middleware: require auth
-export async function requireAuth(c: Context, next: Next) {
+export async function requireAuth(c: Context<{ Variables: AppVariables }>, next: Next) {
   const authHeader = c.req.header('Authorization') || ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-  if (!token) {
-    return c.json({ error: 'Unauthorized' }, 401)
-  }
+  if (!token) return c.json({ error: 'Unauthorized' }, 401)
   try {
     const userId = verifyToken(token)
-    // Attach userId to context
     c.set('userId', userId)
     await next()
   } catch {
@@ -31,8 +30,6 @@ export async function requireAuth(c: Context, next: Next) {
   }
 }
 
-// Simple bcrypt-free password hash (using Node's crypto)
-import { createHash } from 'crypto'
 function hashPwd(pwd: string) {
   return createHash('sha256').update(pwd + JWT_SECRET).digest('hex')
 }

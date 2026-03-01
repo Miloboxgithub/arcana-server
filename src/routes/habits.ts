@@ -1,37 +1,35 @@
 import { Hono } from 'hono'
 import { pool } from '../db.js'
 import { requireAuth } from '../auth.js'
+import type { AppVariables } from '../types.js'
 
-const app = new Hono()
+const app = new Hono<{ Variables: AppVariables }>()
 
-// ── Habits ────────────────────────────────────────────────
-
-// GET /api/habits — list active habits
+// GET /api/habits
 app.get('/', requireAuth, async (c) => {
   const userId = c.get('userId')
   const res = await pool.query(
     `SELECT id, name, slot, exp, dimension, is_anchor, streak, created_at
-     FROM habits WHERE user_id = $1 AND active = TRUE ORDER BY created_at`,
+     FROM habits WHERE user_id=$1 AND active=TRUE ORDER BY created_at`,
     [userId]
   )
   return c.json(res.rows)
 })
 
-// POST /api/habits — upsert habit
+// POST /api/habits — upsert
 app.post('/', requireAuth, async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const { id, name, slot, exp, dimension, is_anchor, streak } = body
+  const { id, name, slot, exp, dimension, is_anchor, streak } = await c.req.json()
   await pool.query(
     `INSERT INTO habits (id, user_id, name, slot, exp, dimension, is_anchor, streak, active)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE)
      ON CONFLICT (id) DO UPDATE SET name=$3, slot=$4, exp=$5, dimension=$6, is_anchor=$7, active=TRUE`,
-    [id, userId, name, slot, exp || 10, dimension || 'pro', is_anchor || false, streak || 0]
+    [id, userId, name, slot, exp ?? 10, dimension ?? 'pro', is_anchor ?? false, streak ?? 0]
   )
   return c.json({ ok: true })
 })
 
-// DELETE /api/habits/:id — soft delete
+// DELETE /api/habits/:id
 app.delete('/:id', requireAuth, async (c) => {
   const userId = c.get('userId')
   const id = c.req.param('id')
@@ -39,12 +37,12 @@ app.delete('/:id', requireAuth, async (c) => {
   return c.json({ ok: true })
 })
 
-// ── Check Records ─────────────────────────────────────────
+// ── Check Records ──────────────────────────────────────────
 
 // GET /api/habits/records?since=YYYY-MM-DD
 app.get('/records', requireAuth, async (c) => {
   const userId = c.get('userId')
-  const since = c.req.query('since') || (() => {
+  const since = c.req.query('since') ?? (() => {
     const d = new Date(); d.setDate(d.getDate() - 90)
     return d.toISOString().split('T')[0]
   })()
@@ -60,12 +58,11 @@ app.get('/records', requireAuth, async (c) => {
 app.post('/records', requireAuth, async (c) => {
   const userId = c.get('userId')
   const { habit_id, date, completed_at } = await c.req.json()
-  const id = `${userId.slice(0,8)}-${habit_id}-${date}`
+  const id = `${(userId as string).slice(0, 8)}-${habit_id}-${date}`
   await pool.query(
     `INSERT INTO check_records (id, user_id, habit_id, date, completed_at)
-     VALUES ($1,$2,$3,$4,$5)
-     ON CONFLICT (id) DO NOTHING`,
-    [id, userId, habit_id, date, completed_at || new Date().toISOString()]
+     VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO NOTHING`,
+    [id, userId, habit_id, date, completed_at ?? new Date().toISOString()]
   )
   return c.json({ ok: true })
 })
