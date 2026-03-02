@@ -8,7 +8,7 @@ const app = new Hono<{ Variables: AppVariables }>()
 const MINIMAX_BASE = process.env.MINIMAX_BASE_URL || 'https://api.minimaxi.com/v1'
 const MINIMAX_KEY = process.env.MINIMAX_API_KEY || ''
 
-// POST /api/chat
+// POST /api/chat — 莫尔加纳对话
 app.post('/', requireAuth, async (c) => {
   const userId = c.get('userId')
   const { messages, system } = await c.req.json()
@@ -45,6 +45,99 @@ app.post('/', requireAuth, async (c) => {
     return c.json({ reply })
   } catch (e) {
     console.error('[chat] error:', e)
+    return c.json({ error: 'AI unavailable' }, 503)
+  }
+})
+
+// POST /api/chat/analyze — 智能分析输入，判断是否添加经验值
+app.post('/analyze', requireAuth, async (c) => {
+  const userId = c.get('userId')
+  const { prompt, system } = await c.req.json()
+
+  if (!MINIMAX_KEY) return c.json({ error: 'AI not configured' }, 503)
+
+  // 组合完整的 prompt
+  const fullSystem = system || '你是 ARCANA 系统的经验值分析器。'
+  const fullPrompt = `${fullSystem}\n\n用户输入：${prompt}\n\n请返回 JSON 格式的分析结果。`
+
+  try {
+    const res = await fetch(`${MINIMAX_BASE}/text/chatcompletion_v2`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${MINIMAX_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'MiniMax-Text-01',
+        messages: [
+          { role: 'system', content: fullSystem },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.3, // 低温度，更确定性的输出
+        max_tokens: 300,
+        top_p: 0.9,
+      }),
+    })
+
+    if (!res.ok) {
+      const errText = await res.text()
+      console.error('[chat/analyze] MiniMax error:', res.status, errText)
+      return c.json({ error: 'AI service error' }, 502)
+    }
+
+    const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
+    const content = data.choices?.[0]?.message?.content?.trim() || ''
+
+    // 解析 JSON 响应
+    let result: {
+      shouldAddExp: boolean
+      dimension: string | null
+      exp: number
+      reason: string
+    }
+
+    try {
+      // 尝试提取 JSON（可能有额外文本）
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        result = JSON.parse(jsonMatch[0])
+      } else {
+        throw new Error('No JSON found')
+      }
+    } catch (parseErr) {
+      console.error('[chat/analyze] JSON parse error:', parseErr, 'content:', content)
+      // 解析失败，返回默认结果
+      return c.json({
+        shouldAddExp: false,
+        dimension: null,
+        exp: 0,
+        reason: '无法分析输入',
+      })
+    }
+
+    // 如果判断应该添加经验值，则更新数据库
+    if (result.shouldAddExp && result.dimension) {
+      const validDimensions = ['pro', 'fitness', 'social', 'create', 'self', 'charm']
+      if (validDimensions.includes(result.dimension)) {
+        try {
+          // 更新维度经验值
+          await pool.query(
+            `INSERT INTO dimensions (user_id, dim_id, total_exp)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (user_id, dim_id)
+             DO UPDATE SET total_exp = dimensions.total_exp + $3`,
+            [userId, result.dimension, result.exp]
+          )
+          console.log(`[chat/analyze] Added ${result.exp} EXP to ${result.dimension} for user ${userId}`)
+        } catch (dbErr) {
+          console.error('[chat/analyze] DB update error:', dbErr)
+        }
+      }
+    }
+
+    return c.json(result)
+  } catch (e) {
+    console.error('[chat/analyze] error:', e)
     return c.json({ error: 'AI unavailable' }, 503)
   }
 })
