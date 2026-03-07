@@ -45,12 +45,12 @@ export async function signUp(email: string, password: string, username?: string)
   return res.rows[0]
 }
 
-export async function signIn(email: string, password: string) {
+export async function signIn(emailOrUsername: string, password: string) {
   const hash = hashPwd(password)
   const res = await pool.query(
     `SELECT id, email, username, avatar_id, onboarding_done
-     FROM users WHERE email = $1 AND password = $2`,
-    [email.toLowerCase().trim(), hash]
+     FROM users WHERE (email = $1 OR username = $1) AND password = $2`,
+    [emailOrUsername.toLowerCase().trim(), hash]
   )
   return res.rows[0] || null
 }

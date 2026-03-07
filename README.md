@@ -1,24 +1,27 @@
-# ARCANA Server · 奥义后端
+---
+AIGC:
+    ContentProducer: Minimax Agent AI
+    ContentPropagator: Minimax Agent AI
+    Label: AIGC
+    ProduceID: 9456ffba55ca4a41d16052d1ecf3f6f3
+    PropagateID: 9456ffba55ca4a41d16052d1ecf3f6f3
+    ReservedCode1: 304402206eb5d5fc7f215344d11c29784fb56f03be92c078e23c2739947aff2f5834c0f20220394138e79f26f82a5892b4539416119195e6f3f37afb02deb018eef0c6ba723c
+    ReservedCode2: 3045022058ba7ed37abb7e1360b297f5c5c63c92027bfed5d3a56113813313fe9c3a2dbb022100d59d65e490ad76bc18dcb3116b581fd73afafbff5db53949b803bdff1c39e28e
+---
 
-> ARCANA API 服务端
+# ARCANA Backend · 后端
+
+> 本文档聚焦后端技术细节。产品背景请参考：[项目全景文档](../README.md)
 
 ---
 
-## 项目概况
-
-| 项目 | 说明 |
-|------|------|
-| 服务名 | ARCANA API Server |
-| 框架 | Express.js + TypeScript |
-| 端口 | 3000 |
-| 部署 | Railway |
-
 ## 技术栈
 
-- **Runtime**: Node.js 20+
-- **Framework**: Express.js
-- **Database**: PostgreSQL (Supabase)
-- **Auth**: JWT
+- **框架**：Hono + TypeScript
+- **数据库**：PostgreSQL（Supabase）
+- **认证**：JWT
+- **部署**：Railway
+- **端口**：3000
 
 ## 快速开始
 
@@ -31,6 +34,9 @@ npm run dev
 
 # 构建
 npm run build
+
+# 生产运行
+npm run start
 ```
 
 ## 环境变量
@@ -52,8 +58,9 @@ JWT_SECRET=your_jwt_secret
 | GET | /user/profile | 获取用户资料 |
 | PUT | /user/profile | 更新用户资料 |
 
-## 分支规范
+## 开发规范
 
+### 分支规范
 ```
 main     ← 稳定版本
 dev      ← 日常开发
@@ -61,15 +68,11 @@ feat/*   ← 功能分支
 fix/*    ← Bug 修复
 ```
 
-## 团队
-
-| 角色 | 负责 |
-|------|------|
-| Milo | 产品决策 |
-| Sylphy | 产品设计 |
-| Roxy | 工程架构、代码实现 |
-| Eris | 品牌策略 |
+### Commit 规范
+```
+feat: 新功能 | fix: 修复 | docs: 文档 | chore: 构建/配置 | style: 样式 | refactor: 重构
+```
 
 ---
 
-*ARCANA — 让每一天都成为你命运牌上的一笔。*
+*参考项目全景文档：/workspace/projects/README.md*
