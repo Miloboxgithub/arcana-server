@@ -58,7 +58,6 @@ app.post('/analyze', requireAuth, async (c) => {
 
   // 组合完整的 prompt
   const fullSystem = system || '你是 ARCANA 系统的经验值分析器。'
-  const fullPrompt = `${fullSystem}\n\n用户输入：${prompt}\n\n请返回 JSON 格式的分析结果。`
 
   try {
     const res = await fetch(`${MINIMAX_BASE}/text/chatcompletion_v2`, {
@@ -74,7 +73,7 @@ app.post('/analyze', requireAuth, async (c) => {
           { role: 'user', content: prompt },
         ],
         temperature: 0.3, // 低温度，更确定性的输出
-        max_tokens: 300,
+        max_tokens: 500,
         top_p: 0.9,
       }),
     })
@@ -88,11 +87,12 @@ app.post('/analyze', requireAuth, async (c) => {
     const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
     const content = data.choices?.[0]?.message?.content?.trim() || ''
 
-    // 解析 JSON 响应
+    // 解析 JSON 响应 - 支持多维度格式
     let result: {
       shouldAddExp: boolean
       dimension: string | null
       exp: number
+      dimensions?: Array<{ dimension: string; exp: number }>
       reason: string
     }
 
@@ -116,11 +116,40 @@ app.post('/analyze', requireAuth, async (c) => {
     }
 
     // 如果判断应该添加经验值，则更新数据库
+    const validDimensions = ['pro', 'fitness', 'social', 'create', 'self', 'charm']
+    
+    // 处理多维度情况
+    if (result.dimensions && Array.isArray(result.dimensions) && result.dimensions.length > 0) {
+      for (const dimExp of result.dimensions) {
+        if (validDimensions.includes(dimExp.dimension)) {
+          try {
+            await pool.query(
+              `INSERT INTO dimensions (user_id, dim_id, total_exp)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (user_id, dim_id)
+               DO UPDATE SET total_exp = dimensions.total_exp + $3`,
+              [userId, dimExp.dimension, dimExp.exp]
+            )
+            console.log(`[chat/analyze] Added ${dimExp.exp} EXP to ${dimExp.dimension} for user ${userId}`)
+          } catch (dbErr) {
+            console.error('[chat/analyze] DB update error:', dbErr)
+          }
+        }
+      }
+      // 返回第一个维度作为主维度（兼容前端）
+      return c.json({
+        shouldAddExp: true,
+        dimension: result.dimensions[0].dimension,
+        exp: result.dimensions.reduce((s, d) => s + d.exp, 0),
+        dimensions: result.dimensions,
+        reason: result.reason || '多维度经验值已添加',
+      })
+    }
+    
+    // 处理单维度情况（向后兼容）
     if (result.shouldAddExp && result.dimension) {
-      const validDimensions = ['pro', 'fitness', 'social', 'create', 'self', 'charm']
       if (validDimensions.includes(result.dimension)) {
         try {
-          // 更新维度经验值
           await pool.query(
             `INSERT INTO dimensions (user_id, dim_id, total_exp)
              VALUES ($1, $2, $3)
