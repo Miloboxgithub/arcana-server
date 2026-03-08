@@ -29,6 +29,7 @@ export async function initDb() {
       slot        TEXT NOT NULL DEFAULT 'morning',
       exp         INT NOT NULL DEFAULT 10,
       dimension   TEXT NOT NULL DEFAULT 'pro',
+      dimensions  JSONB DEFAULT '[{"dimension":"pro","exp":10}]',  -- 多维度存储
       is_anchor   BOOLEAN DEFAULT FALSE,
       streak      INT DEFAULT 0,
       active      BOOLEAN DEFAULT TRUE,

@@ -9,7 +9,7 @@ const app = new Hono<{ Variables: AppVariables }>()
 app.get('/', requireAuth, async (c) => {
   const userId = c.get('userId')
   const res = await pool.query(
-    `SELECT id, name, slot, exp, dimension, is_anchor, streak, created_at
+    `SELECT id, name, slot, exp, dimension, dimensions, is_anchor, streak, created_at
      FROM habits WHERE user_id=$1 AND active=TRUE ORDER BY created_at`,
     [userId]
   )
@@ -19,12 +19,26 @@ app.get('/', requireAuth, async (c) => {
 // POST /api/habits — upsert
 app.post('/', requireAuth, async (c) => {
   const userId = c.get('userId')
-  const { id, name, slot, exp, dimension, is_anchor, streak } = await c.req.json()
+  const { id, name, slot, exp, dimension, dimensions, is_anchor, streak } = await c.req.json()
+  
+  // 处理多维度数据
+  let dimsJson = dimensions
+  if (!dimsJson && dimension) {
+    // 兼容旧的单维度格式
+    dimsJson = [{ dimension, exp: exp ?? 10 }]
+  } else if (!dimsJson) {
+    dimsJson = [{ dimension: 'pro', exp: 10 }]
+  }
+  
+  // 计算总经验值
+  const totalExp = Array.isArray(dimsJson) ? dimsJson.reduce((s: number, d: { exp: number }) => s + (d.exp || 0), 0) : (exp ?? 10)
+  const mainDim = Array.isArray(dimsJson) && dimsJson.length > 0 ? dimsJson[0].dimension : (dimension ?? 'pro')
+  
   await pool.query(
-    `INSERT INTO habits (id, user_id, name, slot, exp, dimension, is_anchor, streak, active)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE)
-     ON CONFLICT (id) DO UPDATE SET name=$3, slot=$4, exp=$5, dimension=$6, is_anchor=$7, active=TRUE`,
-    [id, userId, name, slot, exp ?? 10, dimension ?? 'pro', is_anchor ?? false, streak ?? 0]
+    `INSERT INTO habits (id, user_id, name, slot, exp, dimension, dimensions, is_anchor, streak, active)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE)
+     ON CONFLICT (id) DO UPDATE SET name=$3, slot=$4, exp=$5, dimension=$6, dimensions=$7, is_anchor=$8, active=TRUE`,
+    [id, userId, name, slot, totalExp, mainDim, JSON.stringify(dimsJson), is_anchor ?? false, streak ?? 0]
   )
   return c.json({ ok: true })
 })
