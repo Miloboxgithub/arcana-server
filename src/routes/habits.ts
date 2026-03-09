@@ -8,12 +8,17 @@ const app = new Hono<{ Variables: AppVariables }>()
 // GET /api/habits
 app.get('/', requireAuth, async (c) => {
   const userId = c.get('userId')
-  const res = await pool.query(
-    `SELECT id, name, slot, exp, dimension, dimensions, is_anchor, streak, created_at
-     FROM habits WHERE user_id=$1 AND active=TRUE ORDER BY created_at`,
-    [userId]
-  )
-  return c.json(res.rows)
+  try {
+    const res = await pool.query(
+      `SELECT id, name, slot, exp, dimension, dimensions, is_anchor, streak, created_at
+       FROM habits WHERE user_id=$1 AND active=TRUE ORDER BY created_at`,
+      [userId]
+    )
+    return c.json(res.rows)
+  } catch (err: any) {
+    console.error('[habits GET] error:', err.message)
+    return c.json({ error: 'Database error', detail: err.message }, 500)
+  }
 })
 
 // POST /api/habits — upsert

@@ -6,6 +6,12 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL?.includes('railway') || process.env.DATABASE_URL?.includes('neon')
     ? { rejectUnauthorized: false }
     : false,
+  connectionTimeoutMillis: 5000,
+  query_timeout: 5000,
+})
+
+pool.on('error', (err) => {
+  console.error('[db] pool error:', err.message)
 })
 
 export { pool }
