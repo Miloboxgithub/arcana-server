@@ -24,7 +24,14 @@ app.get('/', requireAuth, async (c) => {
       `SELECT ${selectCols} FROM habits WHERE user_id=$1 AND active=TRUE ORDER BY created_at`,
       [userId]
     )
-    return c.json(res.rows)
+    
+    // 兼容：dimensions 为 NULL 时用 dimension 字段填充
+    const habits = res.rows.map(h => ({
+      ...h,
+      dimensions: h.dimensions || [{ dimension: h.dimension, exp: h.exp || 10 }]
+    }))
+    
+    return c.json(habits)
   } catch (err: any) {
     console.error('[habits GET] error:', err.message)
     return c.json({ error: 'Database error', detail: err.message }, 500)
