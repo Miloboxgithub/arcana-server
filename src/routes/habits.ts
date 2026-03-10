@@ -9,9 +9,19 @@ const app = new Hono<{ Variables: AppVariables }>()
 app.get('/', requireAuth, async (c) => {
   const userId = c.get('userId')
   try {
+    // 动态检查 dimensions 列是否存在
+    const colCheck = await pool.query(
+      `SELECT column_name FROM information_schema.columns 
+       WHERE table_name='habits' AND column_name='dimensions' AND table_schema='public'`
+    )
+    const hasDimensions = colCheck.rows.length > 0
+    
+    const selectCols = hasDimensions 
+      ? 'id, name, slot, exp, dimension, dimensions, is_anchor, streak, created_at'
+      : 'id, name, slot, exp, dimension, is_anchor, streak, created_at'
+    
     const res = await pool.query(
-      `SELECT id, name, slot, exp, dimension, dimensions, is_anchor, streak, created_at
-       FROM habits WHERE user_id=$1 AND active=TRUE ORDER BY created_at`,
+      `SELECT ${selectCols} FROM habits WHERE user_id=$1 AND active=TRUE ORDER BY created_at`,
       [userId]
     )
     return c.json(res.rows)
