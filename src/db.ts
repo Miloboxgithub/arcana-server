@@ -35,7 +35,7 @@ export async function initDb() {
       slot        TEXT NOT NULL DEFAULT 'morning',
       exp         INT NOT NULL DEFAULT 10,
       dimension   TEXT NOT NULL DEFAULT 'pro',
-      dimensions  JSONB DEFAULT '[{"dimension":"pro","exp":10}]',  -- 多维度存储
+      dimensions  JSONB DEFAULT '[{"dimension":"pro","exp":10}]',
       is_anchor   BOOLEAN DEFAULT FALSE,
       streak      INT DEFAULT 0,
       active      BOOLEAN DEFAULT TRUE,
@@ -60,5 +60,18 @@ export async function initDb() {
       PRIMARY KEY (user_id, dim_id)
     );
   `)
+
+  // 列迁移：检测并添加缺失的列
+  await pool.query(`
+    ALTER TABLE habits ADD COLUMN IF NOT EXISTS dimensions JSONB DEFAULT '[{"dimension":"pro","exp":10}]'
+  `).catch(() => {}) // 忽略已存在的列
+
+  // 为已有的 dimensions 列填充数据（如果 dimension 有值但 dimensions 为 NULL）
+  await pool.query(`
+    UPDATE habits 
+    SET dimensions = jsonb_build_array(jsonb_build_object('dimension', dimension, 'exp', COALESCE(exp, 10)))
+    WHERE dimensions IS NULL AND dimension IS NOT NULL
+  `).catch(() => {})
+
   console.log('[db] schema ready')
 }
