@@ -59,12 +59,40 @@ export async function initDb() {
       updated_at  TIMESTAMPTZ DEFAULT NOW(),
       PRIMARY KEY (user_id, dim_id)
     );
+
+    -- 成就定义表（系统预设）
+    CREATE TABLE IF NOT EXISTS achievement_definitions (
+      id          TEXT PRIMARY KEY,
+      category    TEXT NOT NULL,
+      name        TEXT NOT NULL,
+      description TEXT NOT NULL,
+      icon        TEXT NOT NULL,
+      target      INT NOT NULL,
+      trigger_type TEXT NOT NULL,
+      trigger_param JSONB DEFAULT '{}',
+      exp_reward  INT NOT NULL DEFAULT 50,
+      rarity      TEXT NOT NULL DEFAULT 'common',
+      is_hidden   BOOLEAN DEFAULT FALSE
+    );
+
+    -- 用户成就进度表
+    CREATE TABLE IF NOT EXISTS user_achievements (
+      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      achievement_id TEXT NOT NULL,
+      progress    INT NOT NULL DEFAULT 0,
+      unlocked_at TIMESTAMPTZ,
+      notified    BOOLEAN DEFAULT FALSE,
+      UNIQUE(user_id, achievement_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS ua_user ON user_achievements(user_id);
   `)
 
   // 列迁移：检测并添加缺失的列
   await pool.query(`
     ALTER TABLE habits ADD COLUMN IF NOT EXISTS dimensions JSONB DEFAULT '[{"dimension":"pro","exp":10}]'
-  `).catch(() => {}) // 忽略已存在的列
+  `).catch(() => {})
 
   // 为已有的 dimensions 列填充数据（如果 dimension 有值但 dimensions 为 NULL）
   await pool.query(`
@@ -73,5 +101,62 @@ export async function initDb() {
     WHERE dimensions IS NULL AND dimension IS NOT NULL
   `).catch(() => {})
 
+  // 插入成就定义（如果不存在）
+  await seedAchievements()
+
   console.log('[db] schema ready')
+}
+
+// 成就种子数据
+async function seedAchievements() {
+  const achievements = [
+    // === 怪盗初临（入门）===
+    { id: 'first_checkin', category: 'beginner', name: '怪盗初临', description: '完成第一次打卡', icon: '⚡', target: 1, trigger_type: 'total_checks', exp_reward: 30, rarity: 'common' },
+    { id: 'first_habit', category: 'beginner', name: '签订契约', description: '创建第一个习惯', icon: '📜', target: 1, trigger_type: 'total_habits', exp_reward: 20, rarity: 'common' },
+    { id: 'first_dim', category: 'beginner', name: '人格觉醒', description: '任意维度达到 Lv.2', icon: '🎭', target: 2, trigger_type: 'dimension_level', trigger_param: { dim_id: 'any', level: 2 }, exp_reward: 50, rarity: 'common' },
+    { id: 'streak_3', category: 'beginner', name: '初试连击', description: '连续打卡 3 天', icon: '🔥', target: 3, trigger_type: 'streak', exp_reward: 30, rarity: 'common' },
+    { id: 'onboarding', category: 'beginner', name: '怪盗档案', description: '完成新手引导', icon: '📋', target: 1, trigger_type: 'onboarding', exp_reward: 20, rarity: 'common' },
+
+    // === 连锁反应（连续打卡）===
+    { id: 'streak_7', category: 'streak', name: '连锁之力', description: '连续打卡 7 天', icon: '🔗', target: 7, trigger_type: 'streak', exp_reward: 80, rarity: 'uncommon' },
+    { id: 'streak_14', category: 'streak', name: '十四日之影', description: '连续打卡 14 天', icon: '🌐', target: 14, trigger_type: 'streak', exp_reward: 150, rarity: 'uncommon' },
+    { id: 'streak_21', category: 'streak', name: '三周之证', description: '连续打卡 21 天', icon: '⏳', target: 21, trigger_type: 'streak', exp_reward: 250, rarity: 'rare' },
+    { id: 'streak_30', category: 'streak', name: '月之怪盗', description: '连续打卡 30 天', icon: '🌙', target: 30, trigger_type: 'streak', exp_reward: 400, rarity: 'rare' },
+    { id: 'streak_66', category: 'streak', name: '陆下六芒星', description: '连续打卡 66 天', icon: '⭐', target: 66, trigger_type: 'streak', exp_reward: 666, rarity: 'epic' },
+    { id: 'streak_100', category: 'streak', name: '百日大师', description: '连续打卡 100 天', icon: '👑', target: 100, trigger_type: 'streak', exp_reward: 1000, rarity: 'legendary' },
+
+    // === 秘宝收集（维度成长）===
+    { id: 'dim_pro_5', category: 'dimension', name: '学者之路', description: '专业力达到 Lv.5', icon: '📚', target: 5, trigger_type: 'dimension_level', trigger_param: { dim_id: 'pro' }, exp_reward: 200, rarity: 'uncommon' },
+    { id: 'dim_pro_10', category: 'dimension', name: '学识之王', description: '专业力达到 Lv.10', icon: '🎓', target: 10, trigger_type: 'dimension_level', trigger_param: { dim_id: 'pro' }, exp_reward: 500, rarity: 'rare' },
+    { id: 'dim_fitness_5', category: 'dimension', name: '体能觉醒', description: '体能达到 Lv.5', icon: '💪', target: 5, trigger_type: 'dimension_level', trigger_param: { dim_id: 'fitness' }, exp_reward: 200, rarity: 'uncommon' },
+    { id: 'dim_social_5', category: 'dimension', name: '社交达人', description: '社交达到 Lv.5', icon: '🤝', target: 5, trigger_type: 'dimension_level', trigger_param: { dim_id: 'social' }, exp_reward: 200, rarity: 'uncommon' },
+    { id: 'all_dim_3', category: 'dimension', name: '全能怪盗', description: '所有维度达到 Lv.3', icon: '🌟', target: 3, trigger_type: 'all_dimensions_level', trigger_param: { level: 3 }, exp_reward: 300, rarity: 'rare' },
+
+    // === 星辰大海（累计里程碑）===
+    { id: 'total_10', category: 'milestone', name: '十次之战', description: '累计打卡 10 次', icon: '🎯', target: 10, trigger_type: 'total_checks', exp_reward: 50, rarity: 'common' },
+    { id: 'total_50', category: 'milestone', name: '五十次之证', description: '累计打卡 50 次', icon: '🛡️', target: 50, trigger_type: 'total_checks', exp_reward: 150, rarity: 'uncommon' },
+    { id: 'total_100', category: 'milestone', name: '百次之王', description: '累计打卡 100 次', icon: '🏆', target: 100, trigger_type: 'total_checks', exp_reward: 300, rarity: 'rare' },
+    { id: 'total_500', category: 'milestone', name: '五百次贤者', description: '累计打卡 500 次', icon: '🔮', target: 500, trigger_type: 'total_checks', exp_reward: 800, rarity: 'epic' },
+    { id: 'total_1000', category: 'milestone', name: '千次传奇', description: '累计打卡 1000 次', icon: '💎', target: 1000, trigger_type: 'total_checks', exp_reward: 1500, rarity: 'legendary' },
+
+    // === 异世界（特殊时刻）===
+    { id: 'morning_warrior', category: 'special', name: '晨间战士', description: '在 6:00-8:00 完成打卡', icon: '🌅', target: 1, trigger_type: 'time_slot', trigger_param: { start: '06:00', end: '08:00' }, exp_reward: 50, rarity: 'uncommon' },
+    { id: 'night_owl', category: 'special', name: '深夜怪盗', description: '在 22:00-24:00 完成打卡', icon: '🦉', target: 1, trigger_type: 'time_slot', trigger_param: { start: '22:00', end: '24:00' }, exp_reward: 50, rarity: 'uncommon' },
+    { id: 'weekend_warrior', category: 'special', name: '周末猎手', description: '连续 4 周在周末打卡', icon: '🎪', target: 4, trigger_type: 'weekend_streak', exp_reward: 200, rarity: 'rare' },
+    { id: 'exp_1000', category: 'special', name: '千人之力', description: '累计获得 1000 经验', icon: '⚡', target: 1000, trigger_type: 'total_exp', exp_reward: 100, rarity: 'uncommon' },
+
+    // === 阴影行者（隐藏成就）===
+    { id: 'hidden_perfect_week', category: 'hidden', name: '完美一周', description: '一周 7 天全部打卡', icon: '💯', target: 7, trigger_type: 'perfect_week', exp_reward: 300, rarity: 'rare', is_hidden: true },
+    { id: 'hidden_no_break', category: 'hidden', name: '永动机', description: '连续打卡期间不中断', icon: '🔄', target: 50, trigger_type: 'streak_no_break', exp_reward: 500, rarity: 'epic', is_hidden: true },
+    { id: 'hidden_early_bird', category: 'hidden', name: '早起的鸟儿', description: '累计早起打卡 10 次', icon: '🐦', target: 10, trigger_type: 'early_bird_count', exp_reward: 150, rarity: 'uncommon', is_hidden: true },
+    { id: 'hidden_all_slots', category: 'hidden', name: '三界之主', description: '同时拥有早/午/晚三种习惯', icon: '🌞', target: 3, trigger_type: 'all_slots', exp_reward: 200, rarity: 'rare', is_hidden: true },
+  ]
+
+  for (const a of achievements) {
+    await pool.query(`
+      INSERT INTO achievement_definitions (id, category, name, description, icon, target, trigger_type, trigger_param, exp_reward, rarity, is_hidden)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ON CONFLICT (id) DO NOTHING
+    `, [a.id, a.category, a.name, a.description, a.icon, a.target, a.trigger_type, JSON.stringify(a.trigger_param || {}), a.exp_reward, a.rarity, a.is_hidden || false])
+  }
 }

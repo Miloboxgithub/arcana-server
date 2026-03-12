@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { pool } from '../db.js'
 import { requireAuth } from '../auth.js'
 import type { AppVariables } from '../types.js'
+import { checkAchievements } from './achievements.js'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -110,12 +111,18 @@ app.post('/records', requireAuth, async (c) => {
   const userId = c.get('userId')
   const { habit_id, date, completed_at } = await c.req.json()
   const id = `${(userId as string).slice(0, 8)}-${habit_id}-${date}`
+  const completedAt = completed_at ? new Date(completed_at) : new Date()
+  
   await pool.query(
     `INSERT INTO check_records (id, user_id, habit_id, date, completed_at)
      VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO NOTHING`,
-    [id, userId, habit_id, date, completed_at ?? new Date().toISOString()]
+    [id, userId, habit_id, date, completedAt.toISOString()]
   )
-  return c.json({ ok: true })
+  
+  // 检查成就
+  const { newUnlocks } = await checkAchievements(userId, { habitId: habit_id, date, completedAt })
+  
+  return c.json({ ok: true, newAchievements: newUnlocks })
 })
 
 // DELETE /api/habits/records — uncheck

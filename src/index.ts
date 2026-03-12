@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.js'
 import habitsRoutes from './routes/habits.js'
 import dimensionsRoutes from './routes/dimensions.js'
 import chatRoutes from './routes/chat.js'
+import achievementsRoutes from './routes/achievements.js'
 
 const app = new Hono()
 
@@ -24,6 +25,7 @@ app.route('/api/auth', authRoutes)
 app.route('/api/habits', habitsRoutes)
 app.route('/api/dimensions', dimensionsRoutes)
 app.route('/api/chat', chatRoutes)
+app.route('/api/achievements', achievementsRoutes)
 
 // Health check
 app.get('/health', (c) => c.json({ ok: true, ts: new Date().toISOString() }))
