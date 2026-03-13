@@ -213,7 +213,7 @@ export async function checkAchievements(userId: string, checkRecord?: { habitId:
         case 'all_slots': {
           const slots = new Set(habits.rows.map(h => h.slot))
           progress = slots.size
-          shouldUnlock = slots.size >= 3 // morning, afternoon, evening
+          shouldUnlock = slots.size >= def.target // 3 for 三界之主, 4 for 四界之主
           break
         }
 

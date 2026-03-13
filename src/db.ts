@@ -130,7 +130,7 @@ async function seedAchievements() {
     { id: 'dim_pro_10', category: 'dimension', name: '学识之王', description: '专业力达到 Lv.10', icon: '🎓', target: 10, trigger_type: 'dimension_level', trigger_param: { dim_id: 'pro' }, exp_reward: 500, rarity: 'rare' },
     { id: 'dim_fitness_5', category: 'dimension', name: '体能觉醒', description: '体能达到 Lv.5', icon: '💪', target: 5, trigger_type: 'dimension_level', trigger_param: { dim_id: 'fitness' }, exp_reward: 200, rarity: 'uncommon' },
     { id: 'dim_social_5', category: 'dimension', name: '社交达人', description: '社交达到 Lv.5', icon: '🤝', target: 5, trigger_type: 'dimension_level', trigger_param: { dim_id: 'social' }, exp_reward: 200, rarity: 'uncommon' },
-    { id: 'all_dim_3', category: 'dimension', name: '全能怪盗', description: '所有维度达到 Lv.3', icon: '🌟', target: 3, trigger_type: 'all_dimensions_level', trigger_param: { level: 3 }, exp_reward: 300, rarity: 'rare' },
+    { id: 'all_dim_3', category: 'dimension', name: '全能怪盗', description: '六项维度全部达到 Lv.3', icon: '🌟', target: 6, trigger_type: 'all_dimensions_level', trigger_param: { level: 3 }, exp_reward: 300, rarity: 'rare' },
 
     // === 星辰大海（累计里程碑）===
     { id: 'total_10', category: 'milestone', name: '十次之战', description: '累计打卡 10 次', icon: '🎯', target: 10, trigger_type: 'total_checks', exp_reward: 50, rarity: 'common' },
@@ -149,7 +149,7 @@ async function seedAchievements() {
     { id: 'hidden_perfect_week', category: 'hidden', name: '完美一周', description: '一周 7 天全部打卡', icon: '💯', target: 7, trigger_type: 'perfect_week', exp_reward: 300, rarity: 'rare', is_hidden: true },
     { id: 'hidden_no_break', category: 'hidden', name: '永动机', description: '连续打卡期间不中断', icon: '🔄', target: 50, trigger_type: 'streak_no_break', exp_reward: 500, rarity: 'epic', is_hidden: true },
     { id: 'hidden_early_bird', category: 'hidden', name: '早起的鸟儿', description: '累计早起打卡 10 次', icon: '🐦', target: 10, trigger_type: 'early_bird_count', exp_reward: 150, rarity: 'uncommon', is_hidden: true },
-    { id: 'hidden_all_slots', category: 'hidden', name: '三界之主', description: '同时拥有早/午/晚三种习惯', icon: '🌞', target: 3, trigger_type: 'all_slots', exp_reward: 200, rarity: 'rare', is_hidden: true },
+    { id: 'hidden_all_slots', category: 'hidden', name: '四界之主', description: '同时拥有早/午/晚/夜四种习惯', icon: '🌞', target: 4, trigger_type: 'all_slots', trigger_param: { slots: ['morning', 'afternoon', 'evening', 'night'] }, exp_reward: 200, rarity: 'rare', is_hidden: true },
   ]
 
   for (const a of achievements) {
