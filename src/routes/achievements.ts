@@ -94,14 +94,26 @@ export async function checkAchievements(userId: string, checkRecord?: { habitId:
     const streakInfo = await getMaxStreak(userId)
     const maxStreak = streakInfo.maxStreak
 
-    // 获取维度等级
+    // 获取维度等级（使用与前端一致的计算公式）
     const dims = await pool.query(`
       SELECT dim_id, total_exp FROM dimensions WHERE user_id = $1
     `, [userId])
+    
+    // 计算等级的辅助函数（与前端 useProfileStore computeLevel 一致）
+    function computeLevel(totalExp: number): number {
+      let level = 1, maxExp = 1000, remaining = totalExp
+      while (remaining >= maxExp) {
+        remaining -= maxExp
+        level++
+        maxExp = Math.floor(maxExp * 1.3)
+      }
+      return level
+    }
+    
     const dimLevels = new Map()
     for (const d of dims.rows) {
-      // 简单等级计算：每 100 EXP 一级
-      dimLevels.set(d.dim_id, Math.floor(d.total_exp / 100) + 1)
+      // 正确计算：0-999=Lv1, 1000-2299=Lv2, 2300-4299=Lv3...
+      dimLevels.set(d.dim_id, computeLevel(d.total_exp || 0))
     }
 
     // 总经验
