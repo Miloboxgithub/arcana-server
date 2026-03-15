@@ -183,7 +183,7 @@ export async function checkAchievements(userId: string, checkRecord?: { habitId:
           const param = def.trigger_param || {}
           const targetLevel = param.level || 3
           // 假设有 pro, fitness, social, creative, self, career 六个维度
-          const requiredDims = ['pro', 'fitness', 'social', 'creative', 'self', 'career']
+          const requiredDims = ['pro', 'fitness', 'social', 'create', 'self', 'charm']
           const allAbove = requiredDims.every(d => (dimLevels.get(d) || 1) >= targetLevel)
           progress = Array.from(dimLevels.values()).filter(l => l >= targetLevel).length
           shouldUnlock = allAbove
