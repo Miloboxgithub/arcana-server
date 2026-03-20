@@ -87,6 +87,40 @@ export async function initDb() {
     );
 
     CREATE INDEX IF NOT EXISTS ua_user ON user_achievements(user_id);
+
+    CREATE TABLE IF NOT EXISTS weekly_reports (
+      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      week_start  TEXT NOT NULL,
+      week_end    TEXT NOT NULL,
+      total_checks INT NOT NULL DEFAULT 0,
+      total_exp   INT NOT NULL DEFAULT 0,
+      streak_start TEXT,
+      streak_end  TEXT,
+      streak_days INT DEFAULT 0,
+      dim_changes JSONB DEFAULT '{}',
+      top_habits  JSONB DEFAULT '[]',
+      highlights  JSONB DEFAULT '[]',
+      suggestions JSONB DEFAULT '[]',
+      created_at  TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, week_start)
+    );
+
+    CREATE INDEX IF NOT EXISTS wr_user_week ON weekly_reports(user_id, week_start DESC);
+
+    -- 用户通知表
+    CREATE TABLE IF NOT EXISTS user_notifications (
+      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type        TEXT NOT NULL,  -- 'slack_warning' | 'streak_milestone' | 'weekly_report' | 'achievement_unlock' | 'ai_insight'
+      title       TEXT NOT NULL,
+      body        TEXT NOT NULL,
+      data        JSONB DEFAULT '{}',
+      read        BOOLEAN DEFAULT FALSE,
+      created_at  TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS un_user ON user_notifications(user_id, created_at DESC);
   `)
 
   // 列迁移：检测并添加缺失的列
